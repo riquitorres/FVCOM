@@ -36,7 +36,7 @@
 MODULE MOD_PETSc
 # if defined (SEMI_IMPLICIT) || defined (NH) || (defined (WAVE_CURRENT_INTERACTION) && !defined (EXPLICIT))
 
-# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   IMPLICIT NONE
 #include "include/finclude/petsc.h"
 #include "include/finclude/petscvec.h"
@@ -56,10 +56,12 @@ use petscvec
 use petscpc
 use petscksp
 use petscis
+use petscao  !RJT
+use petscpcdef !RJT
   IMPLICIT NONE
 # endif /* Siqi Li, PETSC@20230227 */
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   REAL*8, POINTER          :: XVALS_EL(:)
 # endif
 # if defined (NH)
@@ -71,7 +73,7 @@ use petscis
 
 !======== PETSc VARIABLE BLOCK ==============================================
 !petsc 2d data structures
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   Mat         :: A_EL
   Vec         :: X_EL
   Vec         :: B_EL
@@ -112,6 +114,9 @@ use petscis
   VecScatter  :: G2L
   PetscInt    :: ITS
   ISLocalToGlobalMapping :: ISL2G
+# if defined (PETSC_C)  /* Siqi Li, PETSC@20230227 */
+  ISLocalToGlobalMapping :: ISL2G_row, ISL2G_col 
+# endif
 # endif
 
 # if defined (WAVE_CURRENT_INTERACTION) && !defined (EXPLICIT)
@@ -130,6 +135,9 @@ use petscis
   VecScatter  :: G2L_WAVE
   PetscInt    :: ITS_WAVE
   ISLocalToGlobalMapping :: ISL2G_WAVE
+# if defined (PETSC_C)  /* Siqi Li, PETSC@20230227 */
+  ISLocalToGlobalMapping :: ISL2G_WAVE_row, ISL2G_WAVE_col 
+# endif
 # endif
 
   PetscInt    :: N_VERTS
@@ -522,7 +530,7 @@ use petscis
 
   !set a total problem size including petsc partition halo nodes
   ! ==> [Psize_whalo]
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   PSIZE_EL_HALO = N_VERTS + N_HALO
 # endif
 
@@ -572,17 +580,22 @@ use petscis
       PTMP(ICNT) = PLO_2_PGO(ICNT)-1
     ENDDO
   ENDDO
+# if defined (PETSC_A) || defined (PETSC_B)  /* RT, Siqi Li, PETSC@20230227 */
   CALL ISLocalToGlobalMappingCreate(PETSC_COMM_SELF,PSIZE_WHALO,PTMP,ISL2G,IERR);CHKERRQ(IERR)
+# else
+  CALL ISLocalToGlobalMappingCreate(PETSC_COMM_SELF,BS,PSIZE_WHALO,PTMP,PETSC_COPY_VALUES,ISL2G_col,IERR);CHKERRQ(IERR)
+  CALL ISLocalToGlobalMappingCreate(PETSC_COMM_SELF,BS,PSIZE_WHALO,PTMP,PETSC_COPY_VALUES,ISL2G_row,IERR);CHKERRQ(IERR)
+# endif
   DEALLOCATE(PTMP)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   ALLOCATE(PTMP(PSIZE_EL_HALO)) ; PTMP = 0
   DO I= 1, N_VERTS + N_HALO
     PTMP(I) = PLO_2_PGO_NODE(I)-1
   ENDDO
 
-# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL ISLocalToGlobalMappingCreate(PETSC_COMM_SELF,PSIZE_EL_HALO,PTMP,ISL2G_EL,IERR);CHKERRQ(IERR)
 # else
   CALL ISLocalToGlobalMappingCreate(PETSC_COMM_SELF,BS,PSIZE_EL_HALO,PTMP,PETSC_COPY_VALUES,ISL2G_EL_col,IERR);CHKERRQ(IERR)
@@ -610,7 +623,7 @@ use petscis
   CALL MatSetFromOptions(A,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL MatSetFromOptions(A_EL,IERR);CHKERRQ(IERR)
 # endif
 
@@ -620,11 +633,15 @@ use petscis
 
   !allowing local indexing for assembly of matrix
 # if defined (NH)
+# if defined (PETSC_A) || defined(PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL MatSetLocalToGlobalMapping(A,ISL2G,IERR);CHKERRQ(IERR)
+# else
+  CALL MatSetLocalToGlobalMapping(A,ISL2G_row,ISL2G_col,IERR);CHKERRQ(IERR)
+# endif
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
-# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
+# if defined (SEMI_IMPLICIT) || defined (NH)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL MatSetLocalToGlobalMapping(A_EL,ISL2G_EL,IERR);CHKERRQ(IERR)
 # else
   CALL MatSetLocalToGlobalMapping(A_EL,ISL2G_EL_row,ISL2G_EL_col,IERR);CHKERRQ(IERR)
@@ -632,7 +649,11 @@ use petscis
 # endif
 
 # if defined (WAVE_CURRENT_INTERACTION) && !defined (EXPLICIT)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL MatSetLocalToGlobalMapping(A_WAVE,ISL2G_WAVE,IERR);CHKERRQ(IERR)
+# else
+  CALL MatSetLocalToGlobalMapping(A_WAVE,ISL2G_WAVE_row,ISL2G_WAVE_col,IERR);CHKERRQ(IERR)
+# endif
 # endif
 
   IF(PDEBUG) WRITE(PUNIT,*) 'MatSetLocalToGlobalMapping COMPLETE!'
@@ -647,7 +668,7 @@ use petscis
   CALL ISCreateStride(PETSC_COMM_SELF,PSIZE,0,1,ISLOCAL,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL ISCreateStride(PETSC_COMM_SELF,N_VERTS,0,1,ISLOCAL_EL,IERR);CHKERRQ(IERR)
 # endif
 
@@ -661,7 +682,7 @@ use petscis
   CALL ISCreateStride(PETSC_COMM_SELF,PSIZE,N1,1,ISGLOBAL,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL ISCreateStride(PETSC_COMM_SELF,N_VERTS,ACCUM(MYID),1,ISGLOBAL_EL,IERR);CHKERRQ(IERR)
 # endif
 
@@ -679,7 +700,7 @@ use petscis
   CALL VecCreateSeq(PETSC_COMM_SELF,PSIZE,XLOCAL,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL VecCreateSeq(PETSC_COMM_SELF,N_VERTS,BL_EL,IERR);CHKERRQ(IERR)
   CALL VecCreateSeq(PETSC_COMM_SELF,N_VERTS,XL_EL,IERR);CHKERRQ(IERR)
 # endif
@@ -700,7 +721,7 @@ use petscis
   CALL VecDuplicate(X,U,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL VecCreate(MPI_FVCOM_GROUP,X_EL,IERR);CHKERRQ(IERR)
   CALL VecSetSizes(X_EL,N_VERTS,PETSC_DECIDE,IERR);CHKERRQ(IERR)
   CALL VecSetFromOptions(X_EL,IERR);CHKERRQ(IERR)
@@ -724,7 +745,7 @@ use petscis
   CALL VecScatterCreate(XLOCAL,ISLOCAL,X,ISGLOBAL,L2G,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL VecScatterCreate(XL_EL,ISLOCAL_EL,X_EL,ISGLOBAL_EL,L2G_EL,IERR);CHKERRQ(IERR)
 # endif
 
@@ -737,7 +758,7 @@ use petscis
   CALL VecScatterCreate(X,ISGLOBAL,XLOCAL,ISLOCAL,G2L,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL VecScatterCreate(X_EL,ISGLOBAL_EL,XL_EL,ISLOCAL_EL,G2L_EL,IERR);CHKERRQ(IERR)
 # endif
 
@@ -757,20 +778,29 @@ use petscis
   !---------------------------------------------------------
 # if defined (NH)
   CALL KSPCreate(MPI_FVCOM_GROUP,Ksp,IERR);CHKERRQ(IERR)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL KSPSetOperators(Ksp,A,A,SAME_NONZERO_PATTERN,IERR);CHKERRQ(IERR)
+# else
+  CALL KSPSetOperators(Ksp,A,A,IERR);CHKERRQ(IERR)
+# endif
   CALL KSPSetType(Ksp,KSPGMRES,IERR);CHKERRQ(IERR)
   CALL KSPGetPC(Ksp,Pc,IERR);CHKERRQ(IERR)
   CALL PCSetType(Pc,PCHYPRE,IERR);CHKERRQ(IERR)
   CALL PCHYPRESetType(Pc,"boomeramg",IERR);CHKERRQ(IERR)
   IF(USE_LAST) CALL KSPSetInitialGuessNonzero(Ksp,PETSC_TRUE,IERR);CHKERRQ(IERR)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL KSPSetTolerances(Ksp,RTOL,PETSC_DEFAULT_DOUBLE_PRECISION,  &
          PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,IERR);CHKERRQ(IERR) 
+# else
+  CALL KSPSetTolerances(Ksp,RTOL,PETSC_DEFAULT_REAL,  &
+         PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,IERR);CHKERRQ(IERR)
+# endif
   CALL KSPSetFromOptions(Ksp,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   CALL KSPCreate(MPI_FVCOM_GROUP,Ksp_EL,IERR);CHKERRQ(IERR)
-# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL KSPSetOperators(Ksp_EL,A_EL,A_EL,SAME_NONZERO_PATTERN,IERR);CHKERRQ(IERR)
 # else
   CALL KSPSetOperators(Ksp_EL,A_EL,A_EL,IERR);CHKERRQ(IERR)
@@ -780,7 +810,7 @@ use petscis
   CALL PCSetType(Pc_EL,PCHYPRE,IERR);CHKERRQ(IERR)
   CALL PCHYPRESetType(Pc_EL,"boomeramg",IERR);CHKERRQ(IERR)
   IF(USE_LAST) CALL KSPSetInitialGuessNonzero(Ksp_EL,PETSC_TRUE,IERR);CHKERRQ(IERR)
-# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL KSPSetTolerances(Ksp_EL,RTOL,PETSC_DEFAULT_DOUBLE_PRECISION,  &
          PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,IERR);CHKERRQ(IERR)
 # else
@@ -793,15 +823,24 @@ use petscis
 # if defined (WAVE_CURRENT_INTERACTION) && !defined (EXPLICIT)
   CALL KSPCreate(MPI_FVCOM_GROUP,Ksp_WAVE,IERR);CHKERRQ(IERR)
 !  CALL KSPSetOperators(Ksp_WAVE,A_WAVE,A_WAVE,SAME_NONZERO_PATTERN,IERR);CHKERRQ(IERR)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL KSPSetOperators(Ksp_WAVE,A_WAVE,A_WAVE,DIFFERENT_NONZERO_PATTERN,IERR);CHKERRQ(IERR)
+# else
+  CALL KSPSetOperators(Ksp_WAVE,A_WAVE,A_WAVE,IERR);CHKERRQ(IERR)
+# endif
   CALL KSPSetType(Ksp_WAVE,KSPGMRES,IERR);CHKERRQ(IERR)
 !  CALL KSPSetType(Ksp_WAVE,KSPBCGS,IERR);CHKERRQ(IERR)
 !  CALL KSPGetPC(Ksp_WAVE,Pc_WAVE,IERR);CHKERRQ(IERR)
 !  CALL PCSetType(Pc_WAVE,PCHYPRE,IERR);CHKERRQ(IERR)
 !  CALL PCHYPRESetType(Pc_WAVE,"boomeramg",IERR);CHKERRQ(IERR)
   IF(USE_LAST) CALL KSPSetInitialGuessNonzero(Ksp_WAVE,PETSC_TRUE,IERR);CHKERRQ(IERR)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL KSPSetTolerances(Ksp_WAVE,RTOL,PETSC_DEFAULT_DOUBLE_PRECISION,  &
          PETSC_DEFAULT_DOUBLE_PRECISION,PETSC_DEFAULT_INTEGER,IERR);CHKERRQ(IERR)
+# else
+  CALL KSPSetTolerances(Ksp_WAVE,RTOL,PETSC_DEFAULT_REAL,  &
+         PETSC_DEFAULT_REAL,PETSC_DEFAULT_INTEGER,IERR);CHKERRQ(IERR)
+# endif
   CALL KSPSetFromOptions(Ksp_WAVE,IERR);CHKERRQ(IERR)
 # endif
 
@@ -1035,8 +1074,8 @@ use petscis
   CALL MatCreateMPIAIJ(MPI_FVCOM_GROUP,PSIZE,PSIZE,PsizeGL,PsizeGL,0,DNNZ,0,ONNZ,A,IERR);CHKERRQ(IERR)
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
-# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
+# if defined (SEMI_IMPLICIT) || defined (NH)
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL MatCreateMPIAIJ(MPI_FVCOM_GROUP,N_VERTS,N_VERTS,MGL,MGL,0,DNNZ2,0,ONNZ2,A_EL,IERR);CHKERRQ(IERR)
 # else
   CALL MatCreateAIJ(MPI_FVCOM_GROUP,N_VERTS,N_VERTS,MGL,MGL,0,DNNZ2,0,ONNZ2,A_EL,IERR);CHKERRQ(IERR)
@@ -1123,7 +1162,7 @@ use petscis
   END SUBROUTINE PETSc_SOLVER
 # endif
 
-# if defined (SEMI_IMPLICIT) || (NH)
+# if defined (SEMI_IMPLICIT) || defined (NH)
   SUBROUTINE PETSc_SOLVER_EL
   IMPLICIT NONE
   PetscInt :: REASON, IERR
@@ -1196,7 +1235,7 @@ use petscis
   CALL MatDestroy(A,IERR)     ;CHKERRQ(IERR)
 # endif  
 
-# if defined (SEMI_IMPLICIT) || (NH) 
+# if defined (SEMI_IMPLICIT) || defined (NH) 
   CALL KSPDestroy(Ksp_EL,IERR)   ;CHKERRQ(IERR)
   CALL VecDestroy(X_EL,IERR)     ;CHKERRQ(IERR)
   CALL VecDestroy(B_EL,IERR)     ;CHKERRQ(IERR)
