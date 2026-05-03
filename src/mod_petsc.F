@@ -50,7 +50,10 @@ MODULE MOD_PETSc
 #include "include/finclude/petscvec.h90"
 #include "include/finclude/petscviewer.h"
 # else
-#include "petsc/finclude/petsc.h"
+#include "petsc/finclude/petsc.h" for petsc < 3.24
+! #include "petsc/finclude/petscvecbase.h"
+! #include "petsc/finclude/petscisbase.h"
+! #include "petsc/finclude/petscsysbase.h"
 use petscmat
 use petscvec
 use petscpc

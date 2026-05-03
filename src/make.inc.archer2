@@ -37,7 +37,7 @@
 #
 #        CHOOSE YOUR MODEL OPTIONAS - The Def Flags!
 #
-#        CHOOSE A COMPILER FROM THE LIST OR CREATE YOUR OWN
+#        CHOOSE A COMPFLAG FROM THE LIST OR CREATE YOUR OWN
 #
 #    You can also use the makefile to build and install some of the libraries
 #    used by fvcom. Set the INSTALLDIR and choose the 'LOCAL INSTALL' option
@@ -47,15 +47,25 @@
 #
 #========== TOPDIR ========================================================
 # TOPDIR is the directory in which this make file and the fvcom source reside
+# JC EDIT
+ifeq ($(TOPDIR),)
+$(error "FVCOM TOPDIR has not been set")
+else
+$(info "FVCOM TOPDIR set to ${TOPDIR}")
+endif
 
-           TOPDIR        = 
 #EXAMPLE
-# TOPDIR = /home/user/cchen/FVCOM_source
+# TOPDIR = /home/n01/n01/rito/FVCOM/src/
 # TOPDIR must be set!
 #========== INSTALLDIR =====================================================
 # INSTALLDIR is the directory where you wish to install external libraries
 # The default is in the $(TOPDIR)/libs/install, but you can choose...
-            INSTALLDIR    = $(TOPDIR)/libs/install
+            INSTALLDIR =
+# JC EDIT
+ifeq ($(INSTALLDIR),)
+INSTALLDIR := $(TOPDIR)/libs/install
+endif
+$(info "FVCOM INSTALLDIR set to ${INSTALLDIR}")
 #===========================================================================
 # PREPROCESSOR OPTIONS FOR CPP
 #            DEF_FLAGS     = -P -C -traditional 
@@ -98,9 +108,9 @@ endif
 #                           SET PATH TO LIBRARIES WITH IOLIBS      
 #                           SET PATH TO INCLUDE FILES (netcdf.mod) WITH IOINCS
 #--------------------------------------------------------------------------
-#            FLAG_USE_NETCDF4     = -DUSE_NETCDF4
+            FLAG_USE_NETCDF4     = -DUSE_NETCDF4
 #            FLAG_USE_COMPRESSION = -DUSE_COMPRESSION
-             IOLIBS       =  -lnetcdff -lnetcdf #-lhdf5_hl -lhdf5 -lz -lcurl -lm
+             IOLIBS       =  -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz -lm # -lcurl 
 #             IOLIBS       =  -lnetcdf #-L/hosts/mao/usr/medm/install/netcdf/3.6.3/em64t/lib -lnetcdf
              IOINCS       =  #-I/hosts/mao/usr/medm/install/netcdf/3.6.3/em64t/include
 #             IOLIBS       =  -L/usr/local/install/netcdf/gcc_ifort/3.6.2/lib  -lnetcdf
@@ -108,26 +118,7 @@ endif
 ##             IOLIBS       = -L/usr/local/install/netcdf-4.4.1.1-with-fortran/lib -lnetcdff -lnetcdf
 ##             IOINCS       = -I/usr/local/install/netcdf-4.4.1.1-with-fortran/include
 #--------------------------------------------------------------------------
-#     PETSC 
-#       PETSC IS REQUIRED IF ANY OF THE FOLLOWING FLAGS IS TURNED ON:
-#            FLAG_7  = -DDATA_ASSIM
-#            FLAG_9  = -DSEMI_IMPLICIT
-#            FLAG_23 = -DRRKF
-#            FLAG_23 = -DENKF
-#            FLAG_30 = -DNH
-#            FLAG_37 = -DWAVE_OFFLINE
-#       UNCOMMENT THE RIGHT PETSC FLAG BELOW ON VERSION:
-#       FOR VERSION 2.0   TO 2.3.2
-#            FLAG_41 = -DPETSC_A
-#            include ${PETSC_DIR}/bmake/common/variables
-#
-#       FOR VERSION 2.3.3
-            FLAG_41 = -DPETSC_B
-            include ${PETSC_DIR}/bmake/common/variables
-#
-#       FOR VERSION 3.18.5
-#            FLAG_41 = -DPETSC_C
-#            include ${PETSC_DIR}/lib/petsc/conf/variables
+
 
 #==========================================================================
 #  BEGIN USER DEFINITION SECTION
@@ -147,8 +138,8 @@ endif
 
 #            FLAG_1 =  -DDOUBLE_PRECISION 
 
-#        SINGLE PRECISION OUTPUT FOR VISIT
-#            FLAG_1 =  -DDOUBLE_PRECISION -DSINGLE_OUTPUT
+## SINGLE PRECISION OUTPUT FOR VISIT. ALSO ADD DEFLATE COMPRESSION.
+            FLAG_1 =  -DDOUBLE_PRECISION -DSINGLE_OUTPUT -DNETCDF4_COMPRESSION
 
 #--------------------------------------------------------------------------
 #        SPHERICAL          SELECT SPHERICAL COORDINATES FOR INTEGRATION
@@ -178,15 +169,16 @@ endif
 
              FLAG_4 = -DMULTIPROCESSOR
 #         If using METIS 5 or above, uncomment FLAG_411 and read the file readme_metis in folder METIS_source for detail
-#	     FLAG_411 = -DMETIS_5
+	     FLAG_411 = -DMETIS_5
 #        If FLAG_411 is defined, uncomment path below	     
-#             PARLIB = 
-#             PARTINCS = -I/usr/local/install/metis/5.1.0/intel/19/include
-#             PARTLIBS = -L/usr/local/install/metis/5.1.0/intel/19/lib -lmetis
+             PARLIB = -lmetis  
+#            PARLIB = 
+#             PARTINCS = -I/usr/local/install/metis-5.1.0/gcc-4.4.7/include
+#             PARTLIBS = -L/usr/local/install/metis-5.1.0/gcc-4.4.7/lib -lmetis
 #        If FLAG_411 is not defined, uncomment path below
              PARLIB = -lmetis  #-L/usr/local/lib -lmetis
-             PARTINCS =
-             PARTLIBS =
+#             PARTINCS =
+#             PARTLIBS =
 
 #--------------------------------------------------------------------------
 #        WATER_QUALITY      INCLUDE EPA WATER QUALITY MOD
@@ -214,8 +206,10 @@ endif
 #
 #--------------------------------------------------------------------------
 
-#             FLAG_6 = -DPROJ
+             FLAG_6 = -DPROJ
 
+             PROJLIBS       = -L$(INSTALLDIR)/lib -lfproj4 -lproj -lm
+             PROJINCS       = -I$(INSTALLDIR)/include
 #             PROJLIBS       = -lfproj4 -lproj -lm
 #             PROJINCS       =
 
@@ -229,6 +223,7 @@ endif
 #--------------------------------------------------------------------------
 
 #             FLAG_7 = -DDATA_ASSIM
+#             include ${PETSC_DIR}/bmake/common/variables
 #             OILIB  = -lmkl_lapack -lmkl_em64t -lguide -lpthread
 
 #             OILIB  = -L/usr/local/share/Intel-Compilers/mkl/lib/em64t -lmkl_lapack -lmkl_em64t -lguide -lpthread
@@ -256,7 +251,8 @@ endif
 #  Semi-Implicit time stepping method
 #--------------------------------------------------------------------------
 
-#             FLAG_9 = -DSEMI_IMPLICIT
+             FLAG_9 = -DSEMI_IMPLICIT
+             include ${PETSC_DIR}/bmake/common/variables
 
 
 #---------------------------------------------------------------------------
@@ -384,6 +380,7 @@ endif
 
 #              FLAG_23 = -DRRKF
 #              FLAG_23 = -DENKF
+#             include ${PETSC_DIR}/bmake/common/variables
 #              KFLIB  = -lmkl_lapack -lmkl_em64t -lguide -llapack -lblas 
 
 # For Build on em64t computer (Guppy) 
@@ -406,7 +403,15 @@ endif
 #            FLAG_251 = -DOFFLINE_BIOLOGY
 #            BIOLIB   = -L$(TOPDIR)/BIO_source -lbiomodule
 #            BIOINCS  = -I$(TOPDIR)/BIO_source
-
+#            FLAG_25  = -DFABM
+#             FLAG_25  = -DFABM -DOFFLINE_FABM
+# JC EDIT
+ifeq ($(BIODIR),)
+$(error "FVCOM BIODIR has not been set. For FVCOM-FABM runs, this should be set to the FABM install dir")
+endif
+$(info "FVCOM BIODIR set to ${INSTALLDIR}")
+            BIOLIB   = -L/${BIODIR}/lib -lfabm
+            BIOINCS  = -I${BIODIR}/include -I/${BIODIR}/include/yaml
 
 #--------------------------------------------------------------------------
 #         Dynamic/Thermodynamic Ice                     
@@ -457,6 +462,7 @@ endif
 #--------------------------------------------------------------------------
 
 #             FLAG_30 =  -DNH
+             include ${PETSC_DIR}/bmake/common/variables
 
 #--------------------------------------------------------------------------
 #        PARTICLE TRACKING
@@ -477,6 +483,7 @@ endif
 # Svendsen Roller contribution
 #             FLAG_36 = -DWAVE_ROLLER
 #             FLAG_37 = -DWAVE_OFFLINE
+#             include ${PETSC_DIR}/bmake/common/variables
 #--------------------------------------------------------------------------
 #        THIN-DAM MODEL
 #--------------------------------------------------------------------------
@@ -494,10 +501,16 @@ endif
 #--------------------------------------------------------------------------
 
 #           FLAG_40 =  -DLIMITER_VER_ADV
+
+#--------------------------------------------------------------------------
+#        PETSC Version
+#        If your PETSc is 2.3.2 or older, uncomment this flag
+#--------------------------------------------------------------------------
+#             FLAG_41 = -DOLD_PETSC
+
 #--------------------------------------------------------------------------
 #        SPECIAL PARTITION
-#        This flag can make sure the identical repeat run for same amount of CPUs
-#        (there should be no opt = -O3 when compilation)
+#        This flag can make sure the identical repeat run for same amount of CPUs 
 #--------------------------------------------------------------------------
 #             FLAG_42 = -DPARTITION_SPECIAL
 
@@ -545,7 +558,7 @@ endif
 #--------------------------------------------------------------------------
 #        COMPAQ/ALPHA Definitions
 #--------------------------------------------------------------------------
-#        COMPILER   = -DCOMPAQ
+#        COMPFLAG   = -DCOMPAQ
 #        CPP        = /bin/cpp
 #        FC         = f90
 #        DEBFLGS    =  # -check bounds -check overflow -g 
@@ -553,7 +566,7 @@ endif
 #--------------------------------------------------------------------------
 #  CRAY Definitions         
 #--------------------------------------------------------------------------
-#         COMPILER = -DCRAY 
+#         COMPFLAG = -DCRAY 
 #         CPP      = /opt/ctl/bin/cpp
 #         FC       = f90
 #         DEBFLGS  =  
@@ -562,7 +575,7 @@ endif
 #   Linux/Portland Group Definitions 
 #--------------------------------------------------------------------------
 #         CPP      = /usr/bin/cpp
-#         COMPILER =  
+#         COMPFLAG =  
 #         FC       = pgf90
 #         DEBFLGS  = -Mbounds -g -Mprof=func
 #         OPT      = #-fast  -Mvect=assoc,cachesize:512000,sse  
@@ -570,7 +583,7 @@ endif
 #  Intel Compiler Definitions
 #--------------------------------------------------------------------------
 #         CPP      = /usr/bin/cpp
-#         COMPILER = -DIFORT
+#         COMPFLAG = -DIFORT
 #         FC       = ifort
 #         CC       = icc
 #         CXX      = icc
@@ -588,20 +601,19 @@ endif
 #--------------------------------------------------------------------------
 #  Intel/MPI Compiler Definitions (SMAST)      
 #--------------------------------------------------------------------------
-         CPP      = /usr/bin/cpp
-         COMPILER = -DIFORT  
-         CC       = mpicc
-         CXX      = mpicxx
-         CFLAGS   = -O3 
-         FC       = mpif90
+#         CPP      = /usr/bin/cpp
+#         COMPFLAG = -DIFORT
+#         CC       = mpicc
+#         CXX      = mpicxx
+#         CFLAGS   = -O3
+#         FC       = mpif90
 #         DEBFLGS  = -check all -traceback
 # Use 'OPT = -O0 -g'  for fast compile to test the make 
 # Use 'OPT = -xP' for fast run on em64t (Hydra and Guppy)
 # Use 'OPT = -xN' for fast run on ia32 (Salmon and Minke)
 #         OPT      = -O0 -g
 #         OPT      = -axN -xN
-         OPT      = -O3
-
+#         OPT      = -O3
 # Do not set static for use with visit!
 #         VISOPT   = -Wl,--export-dynamic
 #         LDFLAGS  =  $(VISITLIBPATH)
@@ -609,7 +621,7 @@ endif
 #  gfortran defs 
 #--------------------------------------------------------------------------
 #         CPP      = /usr/bin/cpp 
-#         COMPILER = -DGFORTRAN
+#         COMPFLAG = -DGFORTRAN
 #         FC       = gfortran  -O3 
 #         DEBFLGS  = 
 #         OPT      = 
@@ -618,7 +630,7 @@ endif
 #  absoft / mac os x defs
 #--------------------------------------------------------------------------
 #         CPP      = /usr/bin/cpp 
-#         COMPILER = -DABSOFT  
+#         COMPFLAG = -DABSOFT  
 #         FC       = f90  -O3  -lU77
 #         DEBFLGS  = 
 #         OPT      = 
@@ -626,7 +638,7 @@ endif
 #--------------------------------------------------------------------------
 #  IBM/AIX Definitions
 #--------------------------------------------------------------------------
-#         COMPILER = -DAIX 
+#         COMPFLAG = -DAIX 
 #         CPP      = /usr/local/bin/cpp
 #         FC       = mpxlf90 -qsuffix=f=f90
 #         DEBFLGS  =  # -qcheck -C -g
@@ -634,23 +646,39 @@ endif
 #--------------------------------------------------------------------------
 #  APPLE OS X/XLF Definitions (G5)
 #--------------------------------------------------------------------------
-#         COMPILER = -DAIX
+#         COMPFLAG = -DAIX
 #         CPP      = /usr/bin/cpp
 #         FC       =  /opt/ibmcmp/xlf/8.1/bin/xlf90 -qsuffix=f=f90
 #         DEBFLGS  =  # -qcheck -C -g
 #         OPT      = -O5 -qarch=g5 -qtune=g5  -qhot -qmaxmem=8096 -qunroll=yes -Wl,-stack_size,10000000
 #--------------------------------------------------------------------------
-#  OTHER                   
+#  ARCHER Intel/MPI Compiler
 #--------------------------------------------------------------------------
-#         COMPILER =
-#         CPP      = 
-#         FC       = 
-#         DEBFLGS  = 
-#         OPT      = 
+#         CPP      = /usr/bin/cpp
+#         COMPFLAG = -DIFORT  
+#         CC       = cc
+#         CXX      = CC
+#         CFLAGS   = -O3 
+#         FC       = ftn
+#         DEBFLGS  = -check all
+#         OPT      = -O3
+#         COPTIONS = -c89
+#--------------------------------------------------------------------------
+#  GNU Compiler Definitions (Archer2)
+#--------------------------------------------------------------------------
+	CPP      = cpp
+	COMPFLAG = -DgFortran
+	CC       = cc
+	CXX      = CC
+	CFLAGS   = -O3 -fallow-argument-mismatch -std=c99
+	FC       = ftn
+	OPT      = -O3 -fallow-argument-mismatch -fbounds-check -ffixed-line-length-none -ffree-line-length-none -v
+
+#--------------------------------------------------------------------------
 #==========================================================================
 #  END USER DEFINITION SECTION
 #==========================================================================
-         CPPFLAGS = $(DEF_FLAGS) $(COMPILER)
+         CPPFLAGS = $(DEF_FLAGS) $(COMPFLAG)
          FFLAGS = $(DEBFLGS) $(OPT)
          MDEPFLAGS = --cpp --fext=f90 --file=-
          RANLIB = ranlib

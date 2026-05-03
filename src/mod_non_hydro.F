@@ -40,20 +40,9 @@ MODULE NON_HYDRO
   USE MOD_SPHERICAL, ONLY: ARCX, ARC 
 # endif
 
+
+# if defined (PETSC_A) || defined (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   IMPLICIT NONE
-
-  PRIVATE
-  PUBLIC :: ALLOC_VARS_NH
-  PUBLIC :: ADV_W
-  PUBLIC :: VDIF_W
-  PUBLIC :: GEN_POISSON
-  PUBLIC :: UPDATE_QUVW
-  PUBLIC :: NAME_LIST_INITIALIZE_NH
-  PUBLIC :: NAME_LIST_PRINT_NH
-  PUBLIC :: NAME_LIST_READ_NH
-  PUBLIC :: GET_ISWETBC
-
-! must include all necessary headers in petsc fortran interface
 #include "include/finclude/petsc.h"
 #include "include/finclude/petscvec.h"
 #include "include/finclude/petscda.h"
@@ -65,7 +54,43 @@ MODULE NON_HYDRO
 #include "include/finclude/petscao.h"
 #include "include/finclude/petscvec.h90"
 #include "include/finclude/petscviewer.h"
+! RJT 
+! ! must include all necessary headers in petsc fortran interface
+! #include "include/finclude/petsc.h"
+! #include "include/finclude/petscvec.h"
+! #include "include/finclude/petscda.h"
+! #include "include/finclude/petscmat.h"
+! #include "include/finclude/petscksp.h"
+! #include "include/finclude/petscpc.h"
+! #include "include/finclude/petscis.h"
+! #include "include/finclude/petscis.h90"
+! #include "include/finclude/petscao.h"
+! #include "include/finclude/petscvec.h90"
+! #include "include/finclude/petscviewer.h"
+! RJT
+# else
+#include "petsc/finclude/petsc.h"  
+use petscmat
+use petscvec
+use petscpc
+use petscksp
+use petscis
+use petscao  !RJT
+use petscpcdef !RJT
+  IMPLICIT NONE
+# endif /* Siqi Li, PETSC@20230227 */  
+  ! IMPLICIT NONE RJT
 
+  PRIVATE
+  PUBLIC :: ALLOC_VARS_NH
+  PUBLIC :: ADV_W
+  PUBLIC :: VDIF_W
+  PUBLIC :: GEN_POISSON
+  PUBLIC :: UPDATE_QUVW
+  PUBLIC :: NAME_LIST_INITIALIZE_NH
+  PUBLIC :: NAME_LIST_PRINT_NH
+  PUBLIC :: NAME_LIST_READ_NH
+  PUBLIC :: GET_ISWETBC
   INTEGER, PUBLIC                ::  PROJ_SWITCH
   REAL(SP), PUBLIC, ALLOCATABLE  ::  W4ZT(:,:), RHS(:,:), QP(:,:)
   REAL(SP), PUBLIC, ALLOCATABLE  ::  NHQDRX(:,:), NHQDRY(:,:), NHQDRZ(:,:), NHQ2DX(:), NHQ2DY(:)
