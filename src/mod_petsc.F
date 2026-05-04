@@ -50,10 +50,12 @@ MODULE MOD_PETSc
 #include "include/finclude/petscvec.h90"
 #include "include/finclude/petscviewer.h"
 # else
-#include "petsc/finclude/petsc.h" for petsc < 3.24
+! for petsc < 3.24
+#include "petsc/finclude/petsc.h"
 ! #include "petsc/finclude/petscvecbase.h"
 ! #include "petsc/finclude/petscisbase.h"
 ! #include "petsc/finclude/petscsysbase.h"
+use petsc
 use petscmat
 use petscvec
 use petscpc
@@ -1074,7 +1076,13 @@ use petscpcdef !RJT
 # endif
 
 # if defined (NH)
+# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL MatCreateMPIAIJ(MPI_FVCOM_GROUP,PSIZE,PSIZE,PsizeGL,PsizeGL,0,DNNZ,0,ONNZ,A,IERR);CHKERRQ(IERR)
+# else
+  CALL MatCreateAIJ(MPI_FVCOM_GROUP,N_VERTS,N_VERTS,MGL,MGL,0,DNNZ2,0,ONNZ2,A,IERR);CHKERRQ(IERR)
+  CALL MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE, IERR);CHKERRQ(IERR)
+# endif
+!  CALL MatCreateMPIAIJ(MPI_FVCOM_GROUP,PSIZE,PSIZE,PsizeGL,PsizeGL,0,DNNZ,0,ONNZ,A,IERR);CHKERRQ(IERR)
 # endif
 
 # if defined (SEMI_IMPLICIT) || defined (NH)
@@ -1087,7 +1095,12 @@ use petscpcdef !RJT
 # endif
 
 # if defined (WAVE_CURRENT_INTERACTION) && !defined (EXPLICIT)
+# if defined (PETSC_A) || (PETSC_B)  /* Siqi Li, PETSC@20230227 */
   CALL MatCreateMPIAIJ(MPI_FVCOM_GROUP,N_VERTS,N_VERTS,MGL,MGL,0,DNNZ2,0,ONNZ2,A_WAVE,IERR);CHKERRQ(IERR)
+# else
+  CALL MatCreateAIJ(MPI_FVCOM_GROUP,N_VERTS,N_VERTS,MGL,MGL,0,DNNZ2,0,ONNZ2,A_WAVE,IERR);CHKERRQ(IERR)
+  CALL MatSetOption(A_WAVE, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE, IERR);CHKERRQ(IERR)
+# endif
 # endif
 
   !deallocate non-zero counters
