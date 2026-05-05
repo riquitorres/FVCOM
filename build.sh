@@ -50,19 +50,25 @@ module purge
 module load load-epcc-module 
 module load epcc-setup-env
 module load PrgEnv-gnu
+module load craype-x86-rome
+# stick to GNU 10.3
+# module load gcc/10.3.0
 module load cmake
 # for metis
 module load metis
 # for petsc (requires parallel HDF5)
 module load cray-hdf5-parallel/1.12.2.7
 module load cray-netcdf-hdf5parallel/4.9.0.7
-module load petsc/3.14.2
+module load petsc/3.18.5
+# module load petsc/3.24.1
 
 # Set INCLUDEPATH and LIBPATH for ARCHER2 Cray modules
 # Note: These are not automatically set by all modules, so we construct them manually
-export INCLUDEPATH="/opt/cray/pe/mpich/8.1.27/ofi/gnu/9.1/include:/opt/cray/pe/hdf5-parallel/1.12.2.7/gnu/9.1/include:/opt/cray/pe/netcdf-hdf5parallel/4.9.0.7/gnu/9.1/include:${PETSC_DIR}/include:${PETSC_DIR}"
+# These are needed if not using the local LIB and INCLUDE paths in the make.inc file when building FVCOM. 
+#If so, and not all libraries are covered by the module loads, then add the local libs and include paths here too (e.g. -I${CODE_DIR}/libs/install/include and -L${CODE_DIR}/libs/install/lib for fproj and proj and julian).  
+# export INCLUDEPATH="/opt/cray/pe/mpich/8.1.27/ofi/gnu/9.1/include:/opt/cray/pe/hdf5-parallel/1.12.2.7/gnu/9.1/include:/opt/cray/pe/netcdf-hdf5parallel/4.9.0.7/gnu/9.1/include:${PETSC_DIR}/include:${PETSC_DIR}"
 
-export LIBPATH="/opt/cray/pe/mpich/8.1.27/ofi/gnu/9.1/lib:/opt/cray/pe/hdf5-parallel/1.12.2.7/gnu/9.1/lib:/opt/cray/pe/netcdf-hdf5parallel/4.9.0.7/gnu/9.1/lib:${PETSC_DIR}/lib"
+# export LIBPATH="/opt/cray/pe/mpich/8.1.27/ofi/gnu/9.1/lib:/opt/cray/pe/hdf5-parallel/1.12.2.7/gnu/9.1/lib:/opt/cray/pe/netcdf-hdf5parallel/4.9.0.7/gnu/9.1/lib:${PETSC_DIR}/lib"
 
 # Root directory - assumes the package has been unzipped into an
 # appropriate location on the HPC (e.g. somewhere in /work).
@@ -91,8 +97,11 @@ if [ ! -d ${FABM_INSTALL_DIR} ]; then
     mkdir -p ${FABM_INSTALL_DIR}
 fi
 
-# Number of jobs to use when building with cmake
-NJOBS=4
+# FVCOM's Fortran module dependencies are not parallel-safe here.
+# Force a serial build even if the shell environment exports MAKEFLAGS=-j...
+NJOBS=1
+unset MAKEFLAGS
+unset MFLAGS
 
 # cd $FABM_BUILD_DIR
 
@@ -109,10 +118,10 @@ NJOBS=4
 echo "STEP 2: Building FVCOM ancillary libraries"
 
 FVCOM_TOP_DIR="${CODE_DIR}/"
-FVCOM_LIBS_DIR="${ROOT_DIR}/libs"
+FVCOM_LIBS_DIR="${CODE_DIR}/libs"
 # make allclean TOPDIR=${FVCOM_TOP_DIR} BIODIR=${FABM_INSTALL_DIR}
 # # <<TO_CHANGE - make.inc for compiler flags etc (tested on ARCHER2)>>
-# ln -sf ${FVCOM_TOP_DIR}/build_utils/make_PML_ARCHER2.inc.default ${FVCOM_TOP_DIR}/make.inc
+ln -sf ${FVCOM_TOP_DIR}/build_utils/make_PML_ARCHER2.inc.default ${FVCOM_TOP_DIR}/make.inc
 
 # cd ${FVCOM_LIBS_DIR}
 
@@ -134,8 +143,8 @@ cd ${FVCOM_TOP_DIR}
 # As we are using the module-supplied metis, the include/lib
 # options can be omitted
 
-make -j $NJOBS TOPDIR=${FVCOM_TOP_DIR} BIODIR=${FABM_INSTALL_DIR} libfvcom
-make -j $NJOBS FLAG_411=true TOPDIR=${FVCOM_TOP_DIR} BIODIR=${FABM_INSTALL_DIR}
+make -j${NJOBS} TOPDIR=${FVCOM_TOP_DIR} BIODIR=${FABM_INSTALL_DIR} libfvcom
+make -j${NJOBS} FLAG_411=true TOPDIR=${FVCOM_TOP_DIR} BIODIR=${FABM_INSTALL_DIR}
 # make clean TOPDIR=${FVCOM_TOP_DIR} BIODIR=${FABM_INSTALL_DIR}
 
 cd ${ROOT_DIR}
